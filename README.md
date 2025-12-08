@@ -278,7 +278,32 @@ Retire – desligar legado ao final
 7. Cutover final
 8. Desligar legado
 
+```mermaid
+sequenceDiagram
+    autonumber
 
+    participant User as Usuário
+    participant Legacy as Sistema Legado (On-Prem)
+    participant Sync as Replicação / CDC
+    participant AWS as Novo Backend AWS
+
+    User->>Legacy: Usa o sistema atual
+    Legacy->>Sync: Envia alterações (CDC/ETL)
+    Sync->>AWS: Replica dados para Aurora
+
+    Note over AWS: Novo backend é criado<br/>e testado em paralelo
+
+    User->>AWS: Parte do tráfego (Canary)
+    AWS->>AWS: Processamento serverless
+
+    Note over AWS: Tráfego aumenta gradualmente<br/>até 100%
+
+    User->>AWS: Todo o tráfego agora vai para AWS
+    AWS-->>User: Resposta final
+
+    Note over Legacy: Sistema legado é desligado<br/>após estabilização
+
+```
 
 **Monitoramento e Observabilidade**
 ===================================
@@ -349,22 +374,63 @@ Retire – desligar legado ao final
 
 
 
-Diagramas de Sequência (High-Level)
+# Diagramas de Sequência (High-Level)
 
-Registrar Lançamento
-```text
-Usuário → API Gateway → Lambda Lançamentos → Aurora
-                                     ↓
-                                     SQS/EventBridge
+## Registrar Lançamento
+```mermaid
+
+sequenceDiagram
+    participant User as Usuário
+    participant APIGW as API Gateway
+    participant LambdaL as Lambda Lançamentos
+    participant Aurora as Aurora
+    participant SQS as SQS/EventBridge
+
+    User->>APIGW: POST /lancamentos
+    APIGW->>LambdaL: Invoca função
+    LambdaL->>Aurora: Salva lançamento
+    LambdaL->>SQS: Publica evento "LançamentoCriado"
+    APIGW->>User: Sucesso
+
 ```
 
-Consolidação
-```text
-SQS → Lambda Consolidação → Redis
+## Consolidação
+```mermaid
+sequenceDiagram
+    participant SQS as SQS/EventBridge
+    participant LambdaC as Lambda Consolidação
+    participant Redis as Redis
+
+    SQS->>LambdaC: Evento "LançamentoCriado"
+    LambdaC->>Redis: Atualiza saldo diário
+
 ```
 
-Consulta de Saldo
-```text
-Usuário → API Gateway → Lambda Relatórios → Redis → (fallback Aurora)
+## Consulta de Saldo
+```mermaid
+sequenceDiagram
+    participant User as Usuário
+    participant APIGW as API Gateway
+    participant LambdaR as Lambda Relatórios
+    participant Redis as Redis
+    participant Aurora as Aurora
+
+    User->>APIGW: GET /saldos-diarios
+    APIGW->>LambdaR: Invoca função
+    LambdaR->>Redis: Consulta saldo
+    alt Cache hit
+        Redis-->>LambdaR: Retorna saldo
+    else Cache miss
+        LambdaR->>Aurora: Consulta dados
+        Aurora-->>LambdaR: Retorna saldo
+    end
+    LambdaR->>User: Retorna saldo diário
+
 ```
+
+
+
+
+
+
 
