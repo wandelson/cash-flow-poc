@@ -1,10 +1,81 @@
-# 🧾 Sistema de Fluxo de Caixa, Consolidação Diária e Relatórios  
-Arquitetura moderna, escalável e serverless na AWS, com suporte a migração gradual a partir de sistemas legados on‑premise.
 
----
+# 1. O Problema / Contexto Atual
+O sistema atual é composto por:
 
-## 📌 Visão Geral  
-Este projeto implementa um sistema de fluxo de caixa com:
+- Front-end legado monolítico
+- Backend legado acoplado
+- Banco de dados único
+- Autenticação própria e não padronizada
+- Baixa escalabilidade
+- Dificuldade de manutenção
+- Risco operacional ao evoluir funcionalidades
+
+O negócio exige:
+
+- Modernização sem interrupção
+- Melhor performance
+- Segurança unificada
+- Escalabilidade sob demanda
+- Evolução contínua
+- Migração sem “big bang”
+
+
+
+# 2.Objetivo da Migração
+Modernizar o front com Blazor WebAssembly.
+Modernizar o backend com arquitetura serverless.
+Garantir segurança com OAuth2 + OpenID Connect.
+Migrar sem downtime.
+Manter o legado funcionando até o fim.
+Toda a plataforma — legado e novo — usa **o mesmo Identity Provider** (ex.: Cognito OIDC).
+
+### Benefícios:
+- SSO entre front legado e novo front
+- Tokens JWT padronizados
+- Segurança consistente
+- Autorização multi-tenant via claims
+- Migração suave sem múltiplos logins
+
+### Fluxo:
+- Front legado → IdP
+- Novo front Blazor → IdP
+- API Gateway → valida JWT
+- Lambdas → usam claims (`merchantId`, `roles`)
+
+
+# 3.Estratégia de Migração — Strangler Fig Pattern
+1. **Manter o legado funcionando**
+2. Criar o novo sistema ao lado do legado
+3. Redirecionar funcionalidades específicas para o novo front/backend
+4. Usar **CDC** para sincronizar dados entre legado e novo banco
+5. Expandir o novo sistema gradualmente
+6. “Estrangular” o legado até substituí-lo por completo
+
+
+
+# 4.Arquitetura Atual (Legado)
+
+```mermaid
+
+flowchart TD
+
+    User["🧑‍💼 Comerciante (Front Legado)"]
+
+    subgraph Legacy["🏢 Sistema Legado"]
+        LegacyFront["🖥️ Front-End Legado"]
+        LegacyAPI["🔧 API Legada"]
+        LegacyDB["🗄️ Banco de Dados Legado"]
+    end
+
+    User --> LegacyFront
+    LegacyFront --> LegacyAPI
+    LegacyAPI --> LegacyDB
+```
+
+
+
+# 5.🏗️ Arquitetura Final (Novo sistema)
+## 🧾 Sistema de Fluxo de Caixa, Consolidação Diária e Relatórios  
 
 - Registro de lançamentos (débito/crédito)  
 - Consolidação diária assíncrona  
@@ -12,46 +83,146 @@ Este projeto implementa um sistema de fluxo de caixa com:
 - Arquitetura serverless  
 - Alta escalabilidade e baixo acoplamento  
 - Migração gradual de ambiente legado  
-
 ---
 
-# 🏗️ Arquitetura Final (AWS Serverless)
-
 ```mermaid
+
 flowchart TD
-    subgraph AWS_Cloud["AWS Cloud"]
-        
-        APIGW["API Gateway"]
-        Cognito["Cognito<br/>Autenticação"]
-        LambdaL["Lambda Lançamentos"]
-        LambdaC["Lambda Consolidação"]
-        LambdaR["Lambda Relatórios"]
-        SQS["SQS / EventBridge<br/>Eventos Assíncronos"]
-        Aurora["Aurora Serverless v2<br/>Banco ACID"]
-        Redis["ElastiCache Redis<br/>Saldos Consolidados"]
-        CloudWatch["CloudWatch<br/>Logs / Métricas / Alarmes"]
+    User["🧑‍💼 Comerciante<br/>Blazor WebAssembly"]
 
-        APIGW --> LambdaL
-        APIGW --> LambdaR
-        APIGW --> Cognito
-
-        LambdaL --> Aurora
-        LambdaL --> SQS
-
-        SQS --> LambdaC
-        LambdaC --> Redis
-
-        LambdaR --> Redis
-        LambdaR --> Aurora
-
-        LambdaL --> CloudWatch
-        LambdaC --> CloudWatch
-        LambdaR --> CloudWatch
+    subgraph Edge["🌎 CDN + Static Web"]
+        CF["🌐 CloudFront"]
+        S3["📦 S3 Static Website<br/>Blazor WASM"]
     end
+
+    subgraph AWS_Cloud["☁️ AWS Cloud (Backend)"]
+        
+        Cognito["🔐 Cognito<br/>OAuth2 + OIDC"]
+        APIGW["🛡️ API Gateway<br/>Validação JWT"]
+        LambdaL["⚡ Lambda Lançamentos"]
+        LambdaC["⚡ Lambda Consolidação"]
+        LambdaR["⚡ Lambda Relatórios"]
+        SQS["📬 SQS / EventBridge<br/>Eventos Assíncronos"]
+        Aurora["🗄️ Aurora Serverless v2<br/>Banco ACID"]
+        Redis["🚀 Redis (ElastiCache)<br/>Saldos Consolidados"]
+        CloudWatch["📊 CloudWatch<br/>Logs / Métricas / Alarmes"]
+    end
+
+    User --> CF
+    CF --> S3
+    S3 --> User
+
+    User --> Cognito
+    User --> APIGW
+
+    APIGW --> LambdaL
+    APIGW --> LambdaR
+
+    LambdaL --> Aurora
+    LambdaL --> SQS
+
+    SQS --> LambdaC
+    LambdaC --> Redis
+
+    LambdaR --> Redis
+    LambdaR --> Aurora
+
+    LambdaL --> CloudWatch
+    LambdaC --> CloudWatch
+    LambdaR --> CloudWatch
+
 ```
 
-Domínios Funcionais e Capacidades
-=================================
+
+# 6. Arquitetura de Transição (Migração do Legado) - Strangler
+
+```mermaid
+flowchart LR
+
+    User["🧑‍💼 Comerciante"]
+
+    subgraph IdP["🔐 Identity Provider<br/>(Cognito / OIDC)"]
+        Auth["Emissão de Tokens<br/>OAuth2 + OpenID Connect"]
+    end
+
+    %% FRONT-ENDS
+    subgraph Fronts["Interfaces"]
+        LegacyFront["🖥️ Front-End Legado<br/>(Integrado ao IdP)"]
+        NewFront["🌐 Novo Front Blazor<br/>S3 + CloudFront<br/>(OIDC)"]
+    end
+
+    %% LEGADO
+    subgraph Legacy["🏢 Sistema Legado"]
+        LegacyAPI["🔧 API Legada"]
+        LegacyDB["🗄️ Banco Legado"]
+    end
+
+    %% MIGRAÇÃO
+    subgraph Migration["🔄 Migração (Strangler Fig)"]
+        CDC["🔁 CDC / Replicação de Dados"]
+    end
+
+    %% NOVO BACKEND
+    subgraph NewBackend["☁️ Novo Backend AWS"]
+        APIGW["🛡️ API Gateway<br/>Authorizer OIDC"]
+        LambdaRel["⚡ Lambda Relatórios"]
+        LambdaLanc["⚡ Lambda Lançamentos"]
+        Aurora["🗄️ Aurora Serverless"]
+        Redis["🚀 Redis (Cache de Saldos)"]
+    end
+
+    %% FLUXOS BÁSICOS
+
+    User --> LegacyFront
+    User --> NewFront
+
+    %% Ambos os fronts usam o MESMO IdP
+    LegacyFront --> Auth
+    NewFront --> Auth
+
+    %% Front legado ainda chama APIs legadas
+    LegacyFront --> LegacyAPI
+    LegacyAPI --> LegacyDB
+
+    %% CDC para alimentar Aurora
+    LegacyDB --> CDC --> Aurora
+
+    %% Relatórios: front legado redireciona para novo front
+    LegacyFront -->|Relatórios: redirect| NewFront
+    NewFront --> APIGW
+    APIGW --> LambdaRel
+    LambdaRel --> Redis
+    LambdaRel --> Aurora
+
+    %% Lançamentos migrados: front legado passa a chamar novo backend
+    LegacyFront -->|Lançamentos migrados| APIGW
+    APIGW --> LambdaLanc
+    LambdaLanc --> Aurora
+
+
+```
+
+## Fluxo de Migração (Simplificado)
+
+
+```mermaid
+
+flowchart TD
+
+    A["🏢 1. Sistema Legado em Produção"] --> B["🌱 2. Criar Novo Front Blazor<br/>em S3 + CloudFront"]
+    B --> C["🔐 3. Integrar Cognito (OIDC)"]
+    C --> D["⚡ 4. Criar Novas APIs Serverless<br/>(API Gateway + Lambda)"]
+    D --> E["🔀 5. Redirecionar Funcionalidades<br/>Específicas para o Novo Backend"]
+    E --> F["🌳 6. Expandir o Novo Sistema<br/>e Estrangular o Legado"]
+    F --> G["🛑 7. Desligar o Legado"]
+
+
+```
+
+
+
+# 7. Domínios Funcionais e Capacidades (Arquitetura de negócio)
+
 
 **Lançamentos**
 ---------------
@@ -109,8 +280,8 @@ Domínios Funcionais e Capacidades
 *   Tracing (X-Ray)
     
 
- Requisitos Funcionais (RF)
-============================
+#8.  Requisitos Funcionais (RF)
+
 
 *   **RF01** Registrar lançamento financeiro
     
@@ -137,8 +308,8 @@ Domínios Funcionais e Capacidades
 *   **RF12** Monitorar filas, erros e latência
     
 
- Requisitos Não Funcionais (RNF)
-=================================
+# 9. Requisitos Não Funcionais (RNF)
+
 
 ### **Desempenho**
 
@@ -188,8 +359,42 @@ Domínios Funcionais e Capacidades
 *   Cache reduz carga no Aurora
     
 
- Justificativa da Arquitetura e Tecnologias
-============================================
+# 10. Justificativa da Arquitetura e Tecnologias
+
+Atributos:
+### ✅ Escalabilidade
+
+Cada serviço escala de forma independente.
+
+### ✅ Disponibilidade
+
+Falhas isoladas não derrubam o sistema.
+
+### ✅ Performance
+
+Relatórios via Redis, lançamentos via Lambda, consolidação assíncrona.
+
+### ✅ Segurança
+
+Princípio de menor privilégio, JWT por serviço, superfícies menores.
+
+### ✅ Observabilidade
+
+Logs, métricas e alarmes por domínio.
+
+### ✅ Manutenibilidade
+
+Evolução contínua sem impacto no restante.
+
+### ✅ Custo
+
+Pay-per-use, cache reduz carga, Aurora Serverless ajusta capacidade.
+
+### ✅ Suporte ao Strangler Fig Pattern
+
+Permite substituir o legado por partes.
+
+Produtos:
 
 ### **Serverless**
 
@@ -236,77 +441,7 @@ Domínios Funcionais e Capacidades
 *   Barato
 
 
-# Arquitetura de Transição (Migração do Legado)
-# High-Level — Convivência Legado + AWS
-
-```text
-+---------------------------+     +-------------------------------+
-| Sistema Legado On-Prem    |     | Novo Backend AWS             |
-| - Banco antigo            |     | - API Gateway                |
-| - Lançamentos             |     | - Lambdas                    |
-+---------------------------+     | - Aurora                     |
-                                  | - Redis                      |
-                                  +-------------------------------+
-
-                │ Sincronização / CDC / ETL
-                ▼
-
-+---------------------------+
-| Camada de Integração     |
-| - Replica dados           |
-| - Publica eventos         |
-+---------------------------+
-```
-
-# Estratégia de Migração (6 Rs da AWS)
-Replatform – mover partes para AWS com ajustes mínimos
-
-Refactor – modernizar para serverless
-
-Retain – manter legado durante a transição
-
-Retire – desligar legado ao final
-
-## Fluxo de Migração (Simplificado)
-
-1. Conectar on-prem à AWS (VPN/Direct Connect)
-2. Replicar dados para Aurora (DMS/CDC)
-3. Criar novo backend serverless
-4. Roteamento gradual (canary / feature flags)
-5. Migrar funcionalidades por domínio
-6. Aumentar tráfego para AWS
-7. Cutover final
-8. Desligar legado
-
-```mermaid
-sequenceDiagram
-    autonumber
-
-    participant User as Usuário
-    participant Legacy as Sistema Legado (On-Prem)
-    participant Sync as Replicação / CDC
-    participant AWS as Novo Backend AWS
-
-    User->>Legacy: Usa o sistema atual
-    Legacy->>Sync: Envia alterações (CDC/ETL)
-    Sync->>AWS: Replica dados para Aurora
-
-    Note over AWS: Novo backend é criado<br/>e testado em paralelo
-
-    User->>AWS: Parte do tráfego (Canary)
-    AWS->>AWS: Processamento serverless
-
-    Note over AWS: Tráfego aumenta gradualmente<br/>até 100%
-
-    User->>AWS: Todo o tráfego agora vai para AWS
-    AWS-->>User: Resposta final
-
-    Note over Legacy: Sistema legado é desligado<br/>após estabilização
-
-```
-
-**Monitoramento e Observabilidade**
-===================================
+# 11. Monitoramento e Observabilidade**
 
 ### **Logs**
 
@@ -340,7 +475,7 @@ sequenceDiagram
 *   AWS X-Ray
 
 
-**Segurança e Integração**
+# 12. Segurança e Integração**
 ==========================
 
 ### **Autenticação e Autorização**
@@ -374,7 +509,7 @@ sequenceDiagram
 
 
 
-# Diagramas de Sequência (High-Level)
+# 13. Diagramas de Sequência (High-Level)
 
 ## Registrar Lançamento
 ```mermaid
