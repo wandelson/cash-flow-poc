@@ -562,10 +562,207 @@ sequenceDiagram
     LambdaR->>User: Retorna saldo diário
 
 ```
+# 14. Finops (High-Level)
+## 📊 FinOps – Resumo de Custos AWS
+
+A arquitetura foi projetada seguindo princípios **FinOps** e **Serverless**, priorizando **baixo custo em idle**, **escalabilidade automática** e **pagamento por uso**.
+
+### 📈 Cenário considerado
+- ~1.000.000 requisições por mês
+- Região AWS: us-east-1
+- Perfil de uso: SaaS financeiro (lançamentos, consolidação e relatórios)
+
+### 💰 Custo mensal estimado
+**≈ USD 100 / mês**
+
+### 🔍 Principais componentes de custo
+- **Aurora Serverless v2 (~75%)**  
+  Banco transacional ACID com auto scale e ACU mínimo configurado.
+- **ElastiCache Redis (~12%)**  
+  Cache de saldos consolidados, reduzindo leituras no banco.
+- **Demais serviços (~13%)**  
+  CloudFront, S3, API Gateway (HTTP API), Lambda, SQS/EventBridge e CloudWatch.
+
+### ✅ Benefícios FinOps
+- Sem servidores dedicados (EC2 ou Kubernetes)
+- Zero custo quando não há tráfego
+- Escala automática conforme a demanda
+- Custos previsíveis por volume de requisições
+
+### ⚠️ Pontos de atenção
+- Configurar corretamente o ACU mínimo do Aurora
+- Definir política de retenção de logs no CloudWatch
+- Aplicar throttling no API Gateway para evitar abuso
+
+> Esta estimativa é aproximada e pode variar conforme o volume real de uso, padrões de acesso e região AWS.
 
 
 
+# 15.Como rodar a aplicação localmente
+
+## 🧰 Pré-requisitos – LocalStack em Docker
+- .NET 10 SDK installed
+- PostgreSQL available and reachable
+- Docker
+- LocalStack
+- (Optional) dotnet-ef tool: `dotnet tool install --global dotnet-ef`
+
+Para executar o LocalStack localmente utilizando Docker, certifique-se de que os seguintes requisitos estejam atendidos.
+
+### 🖥️ Sistema Operacional
+- Windows 10/11 (com WSL2)
+- macOS
+- Linux
+
+1) Subir o localstack/postgree usando o docker
+<img width="341" height="477" alt="image" src="https://github.com/user-attachments/assets/0cac707c-48ae-43b4-8bb7-57a2039a96bd" />
+```  
+docker-compose up -d
+```  
+
+2. Verificar connection strings
+- Edit the `Default` connection string in `src/Lancamentos.Api/appsettings.json` and `src/Relatorios.Api/appsettings.json`  and `src/Consolidacao.Worker/appsettings.json` or set an environment variable:
+3. Build solution
+4. Aplicar migrations se necessário
+  ```bash
+  dotnet ef database update --startup-project src/Infrastructure
+  ```
+
+5. Subir os projetos conforme imagem abaixo.
+
+<img width="803" height="541" alt="image" src="https://github.com/user-attachments/assets/7e03168f-463a-4733-9098-53db1716bf6a" />
 
 
+## Como testar 
+
+## (Lancamento.Api)
+ - `http://localhost:5000/swagger`
+
+  - 📘 API de Lançamentos
+=====================
+
+API responsável por registrar lançamentos financeiros (crédito e débito) em um fluxo de caixa diário.
+
+## 📌 Endpoint
+
+### ➕ Registrar Lançamento
+
+- `POST /lancamentos`  
+- Descrição: Registra um lançamento financeiro para uma data específica.
+
+### 📥 Request
+
+- Headers:
+  - `Content-Type: application/json`
+
+- Body (exemplo):
+### 🧾 Campos do Request
+
+| Campo     | Tipo                | Obrigatório | Descrição                     |
+|-----------|---------------------|-------------|-------------------------------|
+| `valor`   | number (double)     | ✅          | Valor do lançamento           |
+| `descricao` | string            | ❌          | Descrição opcional            |
+| `data`    | string (date)       | ✅          | Data no formato `yyyy-MM-dd`  |
+| `tipo`    | integer             | ✅          | Tipo do lançamento (enum)     |
+
+#### 🔢 Enum: `TipoLancamento`
+
+| Código | Descrição |
+|--------|-----------|
+| 1      | Crédito   |
+| 2      | Débito    |
+
+---
+
+### 📤 Response
+
+- Sucesso:
+  - Status: `200 OK`
+  - Mensagem: "Lançamento registrado com sucesso."
+
+Exemplo de resposta:
+### ⚠️ Possíveis Erros
+
+| Status | Descrição                         |
+|--------|-----------------------------------|
+| 400    | Dados inválidos                   |
+| 422    | Violação de regra de negócio      |
+| 500    | Erro interno                      |
+
+---
+
+## 🧠 Observações Técnicas
+
+- Arquitetura orientada a CQRS.  
+- Validações realizadas na Application Layer.  
+- Consolidação diária pode ocorrer de forma assíncrona (event-driven).  
+- Compatível com MassTransit / SQS / Kafka.
+
+---
+
+# (Relatorio.Api)
+API responsavel por gerar o relatório consolidado do dia. 
+
+**Formato da data do relatório:** `yyyy-MM-dd`
+
+## Exemplo de requisição
+`GET /relatorios/2025-01-10`
+
+## Response (200 OK)
+Relatório consolidado do dia.
+### Campos do Response
+| Campo | Tipo            | Descrição                     |
+|-------|-----------------|-------------------------------|
+| dia   | string (date)   | Data do relatório (yyyy-MM-dd)|
+| saldo | number (double) | Saldo consolidado do dia      |
+
+### Possíveis Erros
+| Status | Descrição                  |
+|--------|---------------------------|
+| 400    | Data inválida             |
+| 404    | Relatório não encontrado  |
+| 500    | Erro interno              |
+
+### Observações Técnicas
+- API de consulta (Query)
+- Segue padrão CQRS
+- Dados consolidados previamente via eventos
+- Leitura otimizada (read model)
+- Compatível com event-driven architecture
+
+### Exemplo de uso (curl)
+    curl -X GET http://localhost:5000/relatorios/2025-01-10# Relatórios — API de Consulta
+
+# (Frontend)
+
+Abaixo conferir a URL do frontend do comerciante.
+
+  - `https://localhost:7020/fluxo-caixa`
+
+Print screen da tela:    
+<img width="1359" height="700" alt="image" src="https://github.com/user-attachments/assets/8d4fad41-13df-4f2a-a4cf-10bfb2a000d2" />
+
+
+# 16. Proximos  passos 
+
+Falhas transitórias sejam reprocessadas (retry)
+
+Mensagens duplicadas não gerem efeito colateral 
+
+Implementar log e observability
+
+Implementar autenticação e autorização
+
+Implementar cache em diversas camadas
+
+Implementar testes de contrato de api
+
+Implementar testes de perfomance
+
+Segregar os banco de dados se necessário
+
+Implementar infra com código utilizando cloud formation/terraform
+
+Deploy arquitetura na AWS (CI/CD)
 
 
