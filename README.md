@@ -743,7 +743,15 @@ Print screen da tela:
 <img width="1359" height="700" alt="image" src="https://github.com/user-attachments/assets/8d4fad41-13df-4f2a-a4cf-10bfb2a000d2" />
 
 
-# 16. Proximos  passos 
+
+# 16. Testes funcionais e unitarios:
+
+
+<img width="1054" height="418" alt="image" src="https://github.com/user-attachments/assets/f5cbc1d9-02c8-4acb-9236-836cfbae0ff7" />
+
+
+
+# 1&. Proximos  passos 
 
 Falhas transitórias sejam reprocessadas (retry)
 
@@ -758,6 +766,8 @@ Implementar cache em diversas camadas
 Implementar testes de contrato de api
 
 Implementar testes de perfomance
+
+Implementar demais testes funcionais e unitarios
 
 Segregar os banco de dados se necessário
 
