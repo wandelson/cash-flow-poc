@@ -737,7 +737,7 @@ Relatório consolidado do dia.
 
 Abaixo conferir a URL do frontend do comerciante.
 
-  - `https://localhost:7020/fluxo-caixa`
+  - `https://localhost:5280/fluxo-caixa`
 
 Print screen da tela:    
 <img width="1359" height="700" alt="image" src="https://github.com/user-attachments/assets/8d4fad41-13df-4f2a-a4cf-10bfb2a000d2" />
@@ -751,9 +751,9 @@ Print screen da tela:
 
 
 
-# 1&. Proximos  passos 
+# 18. Proximos  passos 
 
-Falhas transitórias sejam reprocessadas (retry)
+Falhas transitórias sejam reprocessadas (retry) dlq
 
 Mensagens duplicadas não gerem efeito colateral 
 
@@ -769,9 +769,11 @@ Implementar testes de perfomance
 
 Implementar demais testes funcionais e unitarios
 
-Segregar os banco de dados se necessário
+Segregar os banco de dados se necessário (Redis) 
 
 Implementar infra com código utilizando cloud formation/terraform
+
+Adicionar novos/acrescentar requisitos funcionais 
 
 Deploy arquitetura na AWS (CI/CD)
 
