@@ -737,7 +737,7 @@ Relatório consolidado do dia.
 
 Abaixo conferir a URL do frontend do comerciante.
 
-  - `https://localhost:7020/fluxo-caixa`
+  - `https://localhost:5280/fluxo-caixa`
 
 Print screen da tela:    
 <img width="1359" height="700" alt="image" src="https://github.com/user-attachments/assets/8d4fad41-13df-4f2a-a4cf-10bfb2a000d2" />
