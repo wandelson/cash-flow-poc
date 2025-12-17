@@ -751,9 +751,9 @@ Print screen da tela:
 
 
 
-# 1&. Proximos  passos 
+# 18. Proximos  passos 
 
-Falhas transitórias sejam reprocessadas (retry)
+Falhas transitórias sejam reprocessadas (retry) dlq
 
 Mensagens duplicadas não gerem efeito colateral 
 
@@ -769,9 +769,11 @@ Implementar testes de perfomance
 
 Implementar demais testes funcionais e unitarios
 
-Segregar os banco de dados se necessário
+Segregar os banco de dados se necessário (Redis) 
 
 Implementar infra com código utilizando cloud formation/terraform
+
+Adicionar novos/acrescentar requisitos funcionais 
 
 Deploy arquitetura na AWS (CI/CD)
 
